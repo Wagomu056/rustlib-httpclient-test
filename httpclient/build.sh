@@ -17,5 +17,5 @@ xcodebuild -create-xcframework \
     -library output/ios_arm64_sim/liblib.a -headers output/include \
     -output output/httpclient.xcframework
 
-#rm -rfv ../rust_lib_app/external/httpclient.xcframework
-#cp -rv output/httpclient.xcframework ../rust_lib_app/external/httpclient.xcframework
+rm -rfv ../test_app/external/httpclient.xcframework
+cp -rv output/httpclient.xcframework ../test_app/external/httpclient.xcframework
