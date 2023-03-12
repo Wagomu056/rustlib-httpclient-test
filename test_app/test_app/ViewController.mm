@@ -18,10 +18,6 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view.
     
-    const char* rust_char = rust_hello();
-    NSString* nsStr = [NSString stringWithCString:rust_char encoding:NSUTF8StringEncoding];
-    NSLog(@"%@", nsStr);
-    
     NSLog(@"prev request");
     http_request( [](bool is_success){
         NSLog(@"request success: %d", is_success ? 1 : 0);
