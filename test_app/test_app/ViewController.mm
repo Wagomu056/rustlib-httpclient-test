@@ -21,6 +21,8 @@
     const char* rust_char = rust_hello();
     NSString* nsStr = [NSString stringWithCString:rust_char encoding:NSUTF8StringEncoding];
     NSLog(@"%@", nsStr);
+    
+    http_request();
 }
 
 

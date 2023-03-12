@@ -7,6 +7,22 @@ pub extern fn rust_hello() -> *mut c_char {
     c_string.into_raw()
 }
 
+#[no_mangle]
+pub extern fn http_request() -> bool {
+    let response = reqwest::blocking::get("https://www.example.com");
+    match response {
+        Ok(res) => {
+            println!("Status: {}", res.status());
+            println!("Body:\n{}", res.text().unwrap());
+           true
+        }
+        Err(err) => {
+            println!("Error: {}", err);
+           false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::ffi::CString;
@@ -20,5 +36,11 @@ mod tests {
             };
         let str = c_str.to_str().unwrap();
         assert_eq!(str, "Hello iPhone from Rust");
+    }
+
+    #[test]
+    fn http_request_works() {
+        let is_success = http_request();
+        assert_eq!(is_success, true);
     }
 }

@@ -1,20 +1,13 @@
 rm -rfv output/
 
-rustc src/lib.rs \
-    --target aarch64-apple-ios \
-    --crate-type staticlib \
-    --out-dir output/ios_arm64
-
-rustc src/lib.rs \
-    --target aarch64-apple-ios-sim \
-    --crate-type staticlib \
-    --out-dir output/ios_arm64_sim
+cargo build --target aarch64-apple-ios --out-dir output/aarch64-apple-ios -Z unstable-options
+cargo build --target aarch64-apple-ios-sim --out-dir output/aarch64-apple-ios-sim -Z unstable-options
 
 cbindgen --crate httpclient --output output/include/httpclient.h
 
 xcodebuild -create-xcframework \
-    -library output/ios_arm64/liblib.a -headers output/include \
-    -library output/ios_arm64_sim/liblib.a -headers output/include \
+    -library output/aarch64-apple-ios/libhttpclient.a -headers output/include \
+    -library output/aarch64-apple-ios-sim/libhttpclient.a -headers output/include \
     -output output/httpclient.xcframework
 
 rm -rfv ../test_app/external/httpclient.xcframework
