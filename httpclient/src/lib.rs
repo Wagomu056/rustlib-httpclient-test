@@ -22,7 +22,7 @@ pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackPara
                     name: name.into_raw(),
                 };
 
-                callback(true, &callback_param as *const _ as *const HttpCallbackParam);
+                callback(true, &callback_param as *const HttpCallbackParam);
             }
             Err(err) => {
                 println!("Error: {}", err);
