@@ -19,8 +19,9 @@
     // Do any additional setup after loading the view.
     
     NSLog(@"prev request");
-    http_request( [](bool is_success){
+    http_request( [](bool is_success, HttpCallbackParam* callback_param){
         NSLog(@"request success: %d", is_success ? 1 : 0);
+        NSLog(@"name: %s", callback_param->name);
     } );
     NSLog(@"post request");
 }
