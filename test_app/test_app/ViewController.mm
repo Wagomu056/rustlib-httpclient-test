@@ -22,7 +22,11 @@
     NSString* nsStr = [NSString stringWithCString:rust_char encoding:NSUTF8StringEncoding];
     NSLog(@"%@", nsStr);
     
-    http_request();
+    NSLog(@"prev request");
+    http_request( [](bool is_success){
+        NSLog(@"request success: %d", is_success ? 1 : 0);
+    } );
+    NSLog(@"post request");
 }
 
 

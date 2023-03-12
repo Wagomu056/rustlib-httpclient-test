@@ -1,4 +1,5 @@
 use std::ffi::c_char;
+use std::thread;
 
 #[no_mangle]
 pub extern fn rust_hello() -> *mut c_char {
@@ -8,19 +9,22 @@ pub extern fn rust_hello() -> *mut c_char {
 }
 
 #[no_mangle]
-pub extern fn http_request() -> bool {
-    let response = reqwest::blocking::get("https://www.example.com");
-    match response {
-        Ok(res) => {
-            println!("Status: {}", res.status());
-            println!("Body:\n{}", res.text().unwrap());
-           true
+pub extern fn http_request(callback: extern "C" fn(bool)) {
+    thread::spawn( move || {
+        println!("http_request");
+        let response = reqwest::blocking::get("https://www.example.com");
+        match response {
+            Ok(res) => {
+                println!("Status: {}", res.status());
+                println!("Body:\n{}", res.text().unwrap());
+                callback(true);
+            }
+            Err(err) => {
+                println!("Error: {}", err);
+                callback(false);
+            }
         }
-        Err(err) => {
-            println!("Error: {}", err);
-           false
-        }
-    }
+    });
 }
 
 #[cfg(test)]
@@ -38,9 +42,28 @@ mod tests {
         assert_eq!(str, "Hello iPhone from Rust");
     }
 
+
     #[test]
     fn http_request_works() {
-        let is_success = http_request();
-        assert_eq!(is_success, true);
+        static mut IS_RETURNED: bool = false;
+        static mut IS_SUCCESS: bool = false;
+
+        extern "C" fn http_request_callback(is_success: bool) {
+            unsafe {
+                IS_RETURNED = true;
+                IS_SUCCESS = is_success;
+            }
+            println!("is_success: {}", is_success);
+        }
+
+        println!("prev request");
+        http_request(http_request_callback);
+        println!("post request");
+
+        unsafe {
+            while IS_RETURNED == false {
+            }
+            assert_eq!(IS_SUCCESS, true);
+        }
     }
 }
