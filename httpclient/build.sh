@@ -1,7 +1,7 @@
 rm -rfv output/
 
-cargo build --target aarch64-apple-ios --out-dir output/aarch64-apple-ios -Z unstable-options
-cargo build --target aarch64-apple-ios-sim --out-dir output/aarch64-apple-ios-sim -Z unstable-options
+cargo build --release --target aarch64-apple-ios --out-dir output/aarch64-apple-ios -Z unstable-options
+cargo build --release --target aarch64-apple-ios-sim --out-dir output/aarch64-apple-ios-sim -Z unstable-options
 
 cbindgen --crate httpclient --output output/include/httpclient.h
 
