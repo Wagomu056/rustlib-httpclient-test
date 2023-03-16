@@ -16,10 +16,10 @@ pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackPara
                 println!("Status: {}", res.status());
                 println!("Body:\n{}", res.text().unwrap());
 
-                let name = Box::new(CString::new("Takuya").unwrap());
+                let name = CString::new("Takuya").unwrap();
                 println!("name: {}", name.to_str().unwrap());
                 let callback_param = HttpCallbackParam{
-                    name: name.into_raw(),
+                    name: name.as_ptr(),
                 };
 
                 callback(true, &callback_param as *const HttpCallbackParam);
@@ -44,14 +44,14 @@ mod tests {
     fn http_request_works() {
         static mut IS_RETURNED: bool = false;
         static mut IS_SUCCESS: bool = false;
-        static mut NAME: &str = "";
+        static mut NAME: String = String::new();
 
         extern "C" fn http_request_callback(is_success: bool, callback_param: *const HttpCallbackParam) {
             println!("callback is_success: {}", is_success);
             unsafe {
                 IS_RETURNED = true;
                 IS_SUCCESS = is_success;
-                NAME = CStr::from_ptr((*callback_param).name).to_str().unwrap();
+                NAME = CStr::from_ptr((*callback_param).name).to_str().unwrap().to_string();
             }
         }
 
@@ -63,7 +63,7 @@ mod tests {
             while IS_RETURNED == false {
             }
             assert_eq!(IS_SUCCESS, true);
-            assert_eq!(NAME, "Takuya");
+            assert_eq!(NAME, String::from("Takuya"));
         }
     }
 }
