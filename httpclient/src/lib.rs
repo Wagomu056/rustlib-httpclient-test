@@ -1,22 +1,37 @@
 use std::ffi::{c_char, CString};
 use std::thread;
+use serde::Deserialize;
 
 #[repr(C)]
 pub struct HttpCallbackParam {
     name: *const c_char,
 }
 
+#[derive(Deserialize)]
+struct ResponseBody {
+    #[serde(rename = "userId")]
+    _user_id: i32,
+    #[serde(rename = "id")]
+    _id: i32,
+    title: String,
+    #[serde(rename = "completed")]
+    _completed: bool,
+}
+
 #[no_mangle]
 pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackParam)) {
     thread::spawn( move || {
         println!("http_request >>>>>");
-        let response = reqwest::blocking::get("https://www.example.com");
+        let response = reqwest::blocking::get("https://jsonplaceholder.typicode.com/todos/1");
         match response {
             Ok(res) => {
-                println!("Status: {}", res.status());
-                println!("Body:\n{}", res.text().unwrap());
+                println!("Status: {}", &res.status());
 
-                let name = CString::new("Takuya").unwrap();
+                let body_str = res.text().unwrap();
+                println!("Body:\n{}", &body_str);
+                let body : ResponseBody = serde_json::from_str(&body_str).unwrap();
+
+                let name = CString::new(body.title).unwrap();
                 println!("name: {}", name.to_str().unwrap());
                 let callback_param = HttpCallbackParam{
                     name: name.as_ptr(),
@@ -30,7 +45,6 @@ pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackPara
             }
         }
         println!("<<<<< http_request end");
-        // jsonでパラメータを取得して、一部を構造体として返すのをやってみる。
         // それが終わったらPOSTも試してみる
     });
 }
@@ -63,7 +77,7 @@ mod tests {
             while IS_RETURNED == false {
             }
             assert_eq!(IS_SUCCESS, true);
-            assert_eq!(NAME, String::from("Takuya"));
+            assert_eq!(NAME, String::from("delectus aut autem"));
         }
     }
 }
