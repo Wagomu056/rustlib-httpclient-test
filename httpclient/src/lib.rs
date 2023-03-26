@@ -4,18 +4,19 @@ use serde::Deserialize;
 
 #[repr(C)]
 pub struct HttpCallbackParam {
+    user_id: i32,
     id: i32,
     title: *const c_char,
+    completed: bool,
 }
 
 #[derive(Deserialize)]
 struct ResponseBody {
     #[serde(rename = "userId")]
-    _user_id: i32,
+    user_id: i32,
     id: i32,
     title: String,
-    #[serde(rename = "completed")]
-    _completed: bool,
+    completed: bool,
 }
 
 #[no_mangle]
@@ -27,15 +28,23 @@ pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackPara
             Ok(res) => {
                 println!("Status: {}", &res.status());
 
-                let body_str = res.text().unwrap();
-                println!("Body:\n{}", &body_str);
-                let body : ResponseBody = serde_json::from_str(&body_str).unwrap();
+                let body = res.text().unwrap();
+                println!("Body:\n{}", &body);
 
+                let body = serde_json::from_str(&body);
+                if body.is_err() {
+                    callback(false, std::ptr::null_mut());
+                    return
+                }
+
+                let body : ResponseBody = body.unwrap();
                 let title = CString::new(body.title).unwrap();
                 println!("title: {}", title.to_str().unwrap());
                 let callback_param = HttpCallbackParam{
+                    user_id: body.user_id,
                     id: body.id,
                     title: title.as_ptr(),
+                    completed: body.completed,
                 };
 
                 callback(true, &callback_param as *const HttpCallbackParam);
@@ -64,11 +73,16 @@ mod tests {
 
         extern "C" fn http_request_callback(is_success: bool, callback_param: *const HttpCallbackParam) {
             println!("callback is_success: {}", is_success);
-            unsafe {
+            unsafe  {
                 IS_RETURNED = true;
                 IS_SUCCESS = is_success;
-                ID = (*callback_param).id;
-                TITLE = CStr::from_ptr((*callback_param).title).to_str().unwrap().to_string();
+            }
+
+            if is_success {
+                unsafe {
+                    ID = (*callback_param).id;
+                    TITLE = CStr::from_ptr((*callback_param).title).to_str().unwrap().to_string();
+                }
             }
         }
 
