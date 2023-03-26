@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 #[repr(C)]
 pub struct HttpCallbackParam {
-    name: *const c_char,
+    title: *const c_char,
 }
 
 #[derive(Deserialize)]
@@ -31,10 +31,10 @@ pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackPara
                 println!("Body:\n{}", &body_str);
                 let body : ResponseBody = serde_json::from_str(&body_str).unwrap();
 
-                let name = CString::new(body.title).unwrap();
-                println!("name: {}", name.to_str().unwrap());
+                let title = CString::new(body.title).unwrap();
+                println!("title: {}", title.to_str().unwrap());
                 let callback_param = HttpCallbackParam{
-                    name: name.as_ptr(),
+                    title: title.as_ptr(),
                 };
 
                 callback(true, &callback_param as *const HttpCallbackParam);
@@ -58,14 +58,14 @@ mod tests {
     fn http_request_works() {
         static mut IS_RETURNED: bool = false;
         static mut IS_SUCCESS: bool = false;
-        static mut NAME: String = String::new();
+        static mut TITLE: String = String::new();
 
         extern "C" fn http_request_callback(is_success: bool, callback_param: *const HttpCallbackParam) {
             println!("callback is_success: {}", is_success);
             unsafe {
                 IS_RETURNED = true;
                 IS_SUCCESS = is_success;
-                NAME = CStr::from_ptr((*callback_param).name).to_str().unwrap().to_string();
+                TITLE = CStr::from_ptr((*callback_param).title).to_str().unwrap().to_string();
             }
         }
 
@@ -77,7 +77,7 @@ mod tests {
             while IS_RETURNED == false {
             }
             assert_eq!(IS_SUCCESS, true);
-            assert_eq!(NAME, String::from("delectus aut autem"));
+            assert_eq!(TITLE, String::from("delectus aut autem"));
         }
     }
 }
