@@ -4,6 +4,7 @@ use serde::Deserialize;
 
 #[repr(C)]
 pub struct HttpCallbackParam {
+    id: i32,
     title: *const c_char,
 }
 
@@ -11,8 +12,7 @@ pub struct HttpCallbackParam {
 struct ResponseBody {
     #[serde(rename = "userId")]
     _user_id: i32,
-    #[serde(rename = "id")]
-    _id: i32,
+    id: i32,
     title: String,
     #[serde(rename = "completed")]
     _completed: bool,
@@ -34,6 +34,7 @@ pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackPara
                 let title = CString::new(body.title).unwrap();
                 println!("title: {}", title.to_str().unwrap());
                 let callback_param = HttpCallbackParam{
+                    id: body.id,
                     title: title.as_ptr(),
                 };
 
@@ -58,6 +59,7 @@ mod tests {
     fn http_request_works() {
         static mut IS_RETURNED: bool = false;
         static mut IS_SUCCESS: bool = false;
+        static mut ID: i32 = 0;
         static mut TITLE: String = String::new();
 
         extern "C" fn http_request_callback(is_success: bool, callback_param: *const HttpCallbackParam) {
@@ -65,6 +67,7 @@ mod tests {
             unsafe {
                 IS_RETURNED = true;
                 IS_SUCCESS = is_success;
+                ID = (*callback_param).id;
                 TITLE = CStr::from_ptr((*callback_param).title).to_str().unwrap().to_string();
             }
         }
@@ -77,6 +80,7 @@ mod tests {
             while IS_RETURNED == false {
             }
             assert_eq!(IS_SUCCESS, true);
+            assert_eq!(ID, 1);
             assert_eq!(TITLE, String::from("delectus aut autem"));
         }
     }
