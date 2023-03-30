@@ -1,8 +1,10 @@
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{c_char, c_uint, CStr, CString};
 use std::thread;
 use reqwest::header::{HeaderMap, HeaderValue};
-use reqwest::StatusCode;
+use reqwest::{StatusCode};
+use reqwest::Client;
 use serde::{Serialize, Deserialize};
+use futures::executor::block_on;
 
 #[repr(C)]
 pub struct HttpCallbackParam {
@@ -44,42 +46,55 @@ struct ResponseBody {
     completed: bool,
 }
 
+#[derive(Debug, Deserialize)]
+struct PostImpl {
+    pub id: c_uint,
+    pub user_id: c_uint,
+    pub title: String,
+    pub body: String,
+}
+
+async fn http_request_impl(client: &Client) -> Option<PostImpl> {
+    let res = client.get("https://jsonplaceholder.typicode.com/todos/1")
+        .send()
+        .await
+        .map_err(|e| println!("net error: {}", e))
+        .ok()?;
+
+    let status = res.status();
+    println!("Status: {}", &status);
+
+    let body = res.text()
+        .await
+        .map_err(|e| println!("get text error: {}", e))
+        .ok()?;
+    println!("Body:\n{}", &body);
+
+    serde_json::from_str::<PostImpl>(&body)
+        .map_err(|e| println!("json error: {}", e))
+        .ok()
+}
+
 #[no_mangle]
 pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackParam)) {
     thread::spawn( move || {
-        println!("http_request >>>>>");
-        let response = reqwest::blocking::get("https://jsonplaceholder.typicode.com/todos/1");
-        match response {
-            Ok(res) => {
-                println!("Status: {}", &res.status());
-
-                let body = res.text().unwrap();
-                println!("Body:\n{}", &body);
-
-                let body = serde_json::from_str(&body);
-                if body.is_err() {
-                    callback(false, std::ptr::null_mut());
-                    return
-                }
-
-                let body : ResponseBody = body.unwrap();
-                let title = CString::new(body.title).unwrap();
-                println!("title: {}", title.to_str().unwrap());
+        let client = reqwest::Client::new();
+        let post = block_on(http_request_impl(&client));
+        match post {
+            Some(p) => {
+                let title = CString::new(p.title).unwrap();
                 let callback_param = HttpCallbackParam{
-                    user_id: body.user_id,
-                    id: body.id,
+                    user_id: p.user_id as i32,
+                    id: p.id as i32,
                     title: title.as_ptr(),
-                    completed: body.completed,
+                    completed: true,
                 };
-
                 callback(true, &callback_param as *const HttpCallbackParam);
             }
-            Err(err) => {
-                println!("Error: {}", err);
+            None => {
                 callback(false, std::ptr::null_mut());
             }
         }
-        println!("<<<<< http_request end");
     });
 }
 
