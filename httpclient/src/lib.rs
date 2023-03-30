@@ -2,7 +2,6 @@ use std::ffi::{c_char, c_uint, CStr, CString};
 use std::thread;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::{StatusCode};
-use reqwest::Client;
 use serde::{Serialize, Deserialize};
 use futures::executor::block_on;
 
@@ -46,50 +45,64 @@ struct ResponseBody {
     completed: bool,
 }
 
-#[derive(Debug, Deserialize)]
-struct PostImpl {
-    pub id: c_uint,
-    pub user_id: c_uint,
-    pub title: String,
-    pub body: String,
+#[repr(C)]
+pub struct Post {
+    id: c_uint,
+    user_id: c_uint,
+    title: *const c_char,
+    body: *const c_char,
 }
 
-async fn http_request_impl(client: &Client) -> Option<PostImpl> {
-    let res = client.get("https://jsonplaceholder.typicode.com/todos/1")
+#[derive(Debug, Deserialize)]
+struct PostImpl {
+    id: c_uint,
+    #[serde(rename = "userId")]
+    user_id: c_uint,
+    title: String,
+    body: String,
+}
+
+type RequestCallback = extern "C" fn(bool, *const Post);
+
+async fn get_request_impl() -> Option<PostImpl> {
+    println!("get_request_impl >>>>>");
+    let client = reqwest::blocking::Client::new();
+    let res = client.get("https://jsonplaceholder.typicode.com/posts/1")
         .send()
-        .await
-        .map_err(|e| println!("net error: {}", e))
+        .map_err(|e| println!("network error: {}", e))
         .ok()?;
 
     let status = res.status();
     println!("Status: {}", &status);
 
     let body = res.text()
-        .await
         .map_err(|e| println!("get text error: {}", e))
         .ok()?;
     println!("Body:\n{}", &body);
 
-    serde_json::from_str::<PostImpl>(&body)
+    let post = serde_json::from_str::<PostImpl>(&body)
         .map_err(|e| println!("json error: {}", e))
-        .ok()
+        .ok();
+    println!("<<<<< get_request_impl end");
+
+    post
 }
 
 #[no_mangle]
-pub extern fn http_request(callback: extern "C" fn(bool, *const HttpCallbackParam)) {
+pub extern fn get_request(callback: RequestCallback) {
     thread::spawn( move || {
-        let client = reqwest::Client::new();
-        let post = block_on(http_request_impl(&client));
+        let post = block_on(get_request_impl());
         match post {
             Some(p) => {
                 let title = CString::new(p.title).unwrap();
-                let callback_param = HttpCallbackParam{
-                    user_id: p.user_id as i32,
-                    id: p.id as i32,
+                let body = CString::new(p.body).unwrap();
+                let post = Post{
+                    user_id: p.user_id,
+                    id: p.id,
                     title: title.as_ptr(),
-                    completed: true,
+                    body: body.as_ptr(),
                 };
-                callback(true, &callback_param as *const HttpCallbackParam);
+                callback(true, &post as *const Post);
             }
             None => {
                 callback(false, std::ptr::null_mut());
@@ -176,10 +189,10 @@ mod tests {
     fn http_request_works() {
         static mut IS_RETURNED: bool = false;
         static mut IS_SUCCESS: bool = false;
-        static mut ID: i32 = 0;
+        static mut ID: u32 = 0;
         static mut TITLE: String = String::new();
 
-        extern "C" fn http_request_callback(is_success: bool, callback_param: *const HttpCallbackParam) {
+        extern "C" fn callback(is_success: bool, post: *const Post) {
             println!("callback is_success: {}", is_success);
             unsafe  {
                 IS_RETURNED = true;
@@ -188,14 +201,14 @@ mod tests {
 
             if is_success {
                 unsafe {
-                    ID = (*callback_param).id;
-                    TITLE = CStr::from_ptr((*callback_param).title).to_str().unwrap().to_string();
+                    ID = (*post).id;
+                    TITLE = CStr::from_ptr((*post).title).to_str().unwrap().to_string();
                 }
             }
         }
 
         println!("prev call request");
-        http_request(http_request_callback);
+        get_request(callback);
         println!("post call request");
 
         unsafe {
@@ -203,7 +216,7 @@ mod tests {
             }
             assert_eq!(IS_SUCCESS, true);
             assert_eq!(ID, 1);
-            assert_eq!(TITLE, String::from("delectus aut autem"));
+            assert_eq!(TITLE, String::from("sunt aut facere repellat provident occaecati excepturi optio reprehenderit"));
         }
     }
 
