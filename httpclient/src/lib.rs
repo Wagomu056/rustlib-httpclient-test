@@ -163,7 +163,9 @@ mod tests {
         static mut IS_RETURNED: bool = false;
         static mut IS_SUCCESS: bool = false;
         static mut ID: u32 = 0;
+        static mut USER_ID: u32 = 0;
         static mut TITLE: String = String::new();
+        static mut BODY: String = String::new();
 
         extern "C" fn callback(is_success: bool, post: *const Post) {
             println!("callback is_success: {}", is_success);
@@ -175,7 +177,9 @@ mod tests {
             if is_success {
                 unsafe {
                     ID = (*post).id;
+                    USER_ID = (*post).user_id;
                     TITLE = CStr::from_ptr((*post).title).to_str().unwrap().to_string();
+                    BODY = CStr::from_ptr((*post).body).to_str().unwrap().to_string();
                 }
             }
         }
@@ -189,7 +193,9 @@ mod tests {
             }
             assert_eq!(IS_SUCCESS, true);
             assert_eq!(ID, 1);
+            assert_eq!(USER_ID, 1);
             assert_eq!(TITLE, String::from("sunt aut facere repellat provident occaecati excepturi optio reprehenderit"));
+            assert_eq!(BODY, String::from("quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto"));
         }
     }
 
@@ -197,8 +203,10 @@ mod tests {
     fn post_request_work() {
         static mut IS_RETURNED: bool = false;
         static mut IS_SUCCESS: bool = false;
+        static mut ID: u32 = 0;
         static mut USER_ID: u32 = 0;
         static mut TITLE: String = String::new();
+        static mut BODY: String = String::new();
 
         extern "C" fn callback(is_success: bool, post: *const Post) {
             println!("callback is_success: {}", is_success);
@@ -209,8 +217,10 @@ mod tests {
 
             if is_success {
                 unsafe {
+                    ID = (*post).id;
                     USER_ID = (*post).user_id;
                     TITLE = CStr::from_ptr((*post).title).to_str().unwrap().to_string();
+                    BODY = CStr::from_ptr((*post).body).to_str().unwrap().to_string();
                 }
             }
         }
@@ -230,8 +240,10 @@ mod tests {
             while IS_RETURNED == false {
             }
             assert_eq!(IS_SUCCESS, true);
+            assert_eq!(ID, 101);
             assert_eq!(USER_ID, 123);
             assert_eq!(TITLE, String::from("This is title."));
+            assert_eq!(BODY, String::from("Body message."));
         }
     }
 }
