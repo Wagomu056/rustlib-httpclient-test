@@ -4,8 +4,25 @@
 #include <ostream>
 #include <new>
 
+struct Post {
+  unsigned int id;
+  unsigned int user_id;
+  const char *title;
+  const char *body;
+};
+
+using RequestCallback = void(*)(bool, const Post*);
+
+struct RequestPost {
+  unsigned int user_id;
+  const char *title;
+  const char *body;
+};
+
 extern "C" {
 
-char *rust_hello();
+void get_request(RequestCallback callback);
+
+void post_request(const RequestPost *param, RequestCallback callback);
 
 } // extern "C"
