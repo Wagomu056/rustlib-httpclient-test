@@ -5,6 +5,8 @@ use reqwest::{StatusCode};
 use serde::{Serialize, Deserialize};
 use futures::executor::block_on;
 
+type RequestCallback = extern "C" fn(bool, *const Post);
+
 #[repr(C)]
 pub struct RequestPost {
     user_id: c_uint,
@@ -37,8 +39,45 @@ struct PostImpl {
     body: String,
 }
 
-type RequestCallback = extern "C" fn(bool, *const Post);
+// ----------
+// Utils
+// ----------
+fn convert_post_param(param: &RequestPost) -> RequestPostImpl {
+    let title = unsafe { CStr::from_ptr(param.title) };
+    let title = title.to_str().unwrap().to_owned();
 
+    let body = unsafe { CStr::from_ptr(param.body) };
+    let body = body.to_str().unwrap().to_owned();
+
+    RequestPostImpl {
+        user_id: param.user_id,
+        title,
+        body,
+    }
+}
+
+fn call_callback_by_pos_impl(post_impl: Option<PostImpl>, callback: RequestCallback) {
+    match post_impl {
+        Some(p) => {
+            let title = CString::new(p.title).unwrap();
+            let body = CString::new(p.body).unwrap();
+            let post = Post{
+                user_id: p.user_id,
+                id: p.id,
+                title: title.as_ptr(),
+                body: body.as_ptr(),
+            };
+            callback(true, &post as *const Post);
+        }
+        None => {
+            callback(false, std::ptr::null_mut());
+        }
+    }
+}
+
+// ----------
+// Get
+// ----------
 async fn get_request_impl() -> Option<PostImpl> {
     println!("get_request_impl >>>>>");
     let client = reqwest::blocking::Client::new();
@@ -67,39 +106,13 @@ async fn get_request_impl() -> Option<PostImpl> {
 pub extern fn get_request(callback: RequestCallback) {
     thread::spawn( move || {
         let post = block_on(get_request_impl());
-        match post {
-            Some(p) => {
-                let title = CString::new(p.title).unwrap();
-                let body = CString::new(p.body).unwrap();
-                let post = Post{
-                    user_id: p.user_id,
-                    id: p.id,
-                    title: title.as_ptr(),
-                    body: body.as_ptr(),
-                };
-                callback(true, &post as *const Post);
-            }
-            None => {
-                callback(false, std::ptr::null_mut());
-            }
-        }
+        call_callback_by_pos_impl(post, callback);
     });
 }
 
-fn convert_post_param(param: &RequestPost) -> RequestPostImpl {
-    let title = unsafe { CStr::from_ptr(param.title) };
-    let title = title.to_str().unwrap().to_owned();
-
-    let body = unsafe { CStr::from_ptr(param.body) };
-    let body = body.to_str().unwrap().to_owned();
-
-    RequestPostImpl {
-        user_id: param.user_id,
-        title,
-        body,
-    }
-}
-
+// ----------
+// Post
+// ----------
 async fn post_request_impl(param: &RequestPostImpl) -> Option<PostImpl> {
     println!("post_request_impl >>>>>");
     let mut headers = HeaderMap::new();
@@ -136,22 +149,7 @@ pub extern fn post_request(param: &RequestPost, callback: RequestCallback) {
     let param = convert_post_param(&param);
     thread::spawn( move || {
         let post = block_on(post_request_impl(&param));
-        match post {
-            Some(p) => {
-                let title = CString::new(p.title).unwrap();
-                let body = CString::new(p.body).unwrap();
-                let post = Post{
-                    user_id: p.user_id,
-                    id: p.id,
-                    title: title.as_ptr(),
-                    body: body.as_ptr(),
-                };
-                callback(true, &post as *const Post);
-            }
-            None => {
-                callback(false, std::ptr::null_mut());
-            }
-        }
+        call_callback_by_pos_impl(post, callback);
     });
 }
 
