@@ -22,6 +22,22 @@ struct RequestPostImpl {
     body: String,
 }
 
+impl RequestPostImpl {
+    pub fn init(param: &RequestPost) -> RequestPostImpl {
+        let title = unsafe { CStr::from_ptr(param.title) };
+        let title = title.to_str().unwrap().to_owned();
+
+        let body = unsafe { CStr::from_ptr(param.body) };
+        let body = body.to_str().unwrap().to_owned();
+
+        RequestPostImpl {
+            user_id: param.user_id,
+            title,
+            body,
+        }
+    }
+}
+
 #[repr(C)]
 pub struct Post {
     id: c_uint,
@@ -37,23 +53,6 @@ struct PostImpl {
     user_id: c_uint,
     title: String,
     body: String,
-}
-
-// ----------
-// Utils
-// ----------
-fn convert_post_param(param: &RequestPost) -> RequestPostImpl {
-    let title = unsafe { CStr::from_ptr(param.title) };
-    let title = title.to_str().unwrap().to_owned();
-
-    let body = unsafe { CStr::from_ptr(param.body) };
-    let body = body.to_str().unwrap().to_owned();
-
-    RequestPostImpl {
-        user_id: param.user_id,
-        title,
-        body,
-    }
 }
 
 fn call_callback_by_pos_impl(post_impl: Option<PostImpl>, callback: RequestCallback) {
@@ -146,7 +145,7 @@ async fn post_request_impl(param: &RequestPostImpl) -> Option<PostImpl> {
 
 #[no_mangle]
 pub extern fn post_request(param: &RequestPost, callback: RequestCallback) {
-    let param = convert_post_param(&param);
+    let param = RequestPostImpl::init(&param);
     thread::spawn( move || {
         let post = block_on(post_request_impl(&param));
         call_callback_by_pos_impl(post, callback);
